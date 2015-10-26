@@ -1,0 +1,33 @@
+run_hook() {
+	[[ -n "$overlay_verity_dev" ]] && {
+		msg "Activating overlay_verity mount handler."
+		mount_handler="overlay_verity_mount_handler"
+	}
+}
+
+overlay_verity_mount_handler() {
+	mkdir -p /run/overlay_verity/ro_root
+	mkdir -p /run/overlay_verity/overlay_root
+
+	if [[ -n "$overlay_verity_root" ]]; then
+		if veritysetup create verityroot "$root" "$overlay_verity_dev" "$overlay_verity_root"; then
+			root="/dev/mapper/verityroot"
+			default_mount_handler /run/overlay_verity/ro_root
+		else
+			msg 'Failed to create verityroot device!'
+		fi
+	else
+		msg "Real verification disabled, creating only ro overlay!"
+		default_mount_handler /run/overlay_verity/ro_root
+	fi
+
+	if [ "$(stat -c %D /run/overlay_verity)" = "$(stat -c %D /run/overlay_verity/ro_root)" ]; then
+		msg 'Failed to mount ro_root!'
+	else
+		mount tmpfs -t tmpfs -o size=33% /run/overlay_verity/overlay_root
+		mkdir /run/overlay_verity/overlay_root/work
+		mkdir /run/overlay_verity/overlay_root/upper
+
+		mount overlay -t overlay -o lowerdir=/run/overlay_verity/ro_root,upperdir=/run/overlay_verity/overlay_root/upper,workdir=/run/overlay_verity/overlay_root/work "$1"
+	fi
+}

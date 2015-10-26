@@ -1,0 +1,23 @@
+#!/bin/bash
+
+build() {
+	add_module "overlay"
+	add_module "dm-verity"
+
+	# TODO: detect hash algorithm from verity device?
+	add_module "sha1_generic"
+	add_module "sha1_ssse3"
+	add_module "sha256_generic"
+	add_module "sha256_ssse3"
+
+	add_runscript
+
+	add_binary "/usr/bin/veritysetup"
+    
+	# running out of this setup, we may need to add the real root fs driver
+	if rorootfstype=$(findmnt -uno fstype -T '/run/overlay_verity/ro_root'); then
+		if [[ "$rorootfstype" != 'tmpfs' ]]; then
+        		add_module "$rorootfstype"
+		fi
+	fi
+}
