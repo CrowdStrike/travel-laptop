@@ -7,6 +7,10 @@ A reasonably secure travel laptop following the approach laid out here will boot
 
 Building coreboot and GRUB2 for your target laptop and flashing the appropriate image is out of the scope of this repository's contents and documentation. You can find more information on the [coreboot Wiki](https://coreboot.org/Welcome_to_coreboot).
 
+WARNING: It is recommended to not use the Intel-based Chromebooks (use the ARM-based Chromebooks instead). The Intel based Chromebooks have extra closed source code running in the chipset with direct memory access which we don't control:
+http://libreboot.org/faq/#intelme
+https://en.wikipedia.org/wiki/Intel_Active_Management_Technology#Known_vulnerabilities_and_exploits
+
 ## Involved Components ##
 
 The resources contained in this repository are used in the boot chain as follows:
