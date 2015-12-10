@@ -46,7 +46,7 @@ An exemplary configuration file can be found in [`grub-cfg/bootdrive-grub.cfg`](
 
 ### mkinitcpio Hook ###
 
-To generate an initrd/initramfs/initcpio that initializes dm-verity and creates a `tmpfs` backed `overlayfs` around it, a hook for `mkinitcpio` is required. This hook is provided within [`etc-initcpio/`](etc-initcpio/), simply copy the directory contents to your `/etc/initcpio` directory and add the `overlay_verity` hook to your `/etc/mkinitcpio.conf` in the  `HOOKS` array after the `filesystems` hook.
+To generate an initrd/initramfs/initcpio that initializes dm-verity and creates a `tmpfs` backed `overlayfs` around it, a hook for `mkinitcpio` is required. This hook is provided within [`etc-initcpio/`](etc-initcpio/), simply copy the directory contents to your `/etc/initcpio` directory and add the `overlay_verity` hook to your `/etc/mkinitcpio.conf` in the  `HOOKS` array after the `filesystems` hook. If you have a `fsck` hook, be sure to remove it as it will tamper with the root filesystem's on-disk header and cause verification failures.
 
 
 ## Step-by-step Setup ##
