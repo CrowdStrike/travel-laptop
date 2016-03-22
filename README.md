@@ -6,6 +6,7 @@ The scripts and configurations have been tested with an [ArchLinux](https://www.
 A reasonably secure travel laptop following the approach laid out here will boot only a signed kernel and initrd and assure user-space integrity with a [dm-verity](https://lwn.net/Articles/459420/) protected root filesystem. If you require confidentiality, it is additionally recommended encrypted the entire filesystem or use a separate, encrypted `/home` partition.
 
 Building coreboot and GRUB2 for your target laptop and flashing the appropriate image is out of the scope of this repository's contents and documentation. You can find more information on the [coreboot Wiki](https://coreboot.org/Welcome_to_coreboot).
+You can find a preliminary coreboot review branch that measures platform state into TPM PCRs in [gerrit changeset #14038](http://review.coreboot.org/#/c/14038/) (click the *Download* drop-down to get a URL usable in `git checkout`).
 
 ## Involved Components ##
 
@@ -13,6 +14,7 @@ The resources contained in this repository are used in the boot chain as follows
 - A GRUB2 configuration file is embedded into a GRUB2 `memdisk` on the SPI Flash itself. It serves as the root of the chain of trust and loads the signing key from the GRUB2 `memdisk`, transitions the GRUB2 `root` to the boot device / partition and hands over to a *signed* GRUB2 configuration there.
 - The GRUB2 configuration on the boot device/partition loads the Linux kernel and initrd or whatever other payload you want to load. It will provide the [dm-verity](https://lwn.net/Articles/459420/) root hash to the initrd, which in turn assigns it to the `dm-verity` device. Because this configuration is signed, the `dm-verity` root hash is signed and transitively the root filesystem is authenticated.
 - Because a `dm-verity` root filesystem must be read-only and is not supported by most distributions' generic initrd generation scripts, a special set of scripts to support a `tmpfs` backed [overlayfs](https://www.kernel.org/doc/Documentation/filesystems/overlayfs.txt) mounted from the initrd and intializing the `dm-verity` device with the right root hash is required. This set of scripts will hook into the `mkinitcpio` script on ArchLinux, it must be adapted for other distributions to generate an initrd compatible with this setup.
+- When built with a measuring coreboot, you can deploy TPM remote attestation as a OpenSSH enforced public key command to deny logging in from an untrusted device. Two simple programs that implement remote attestation and verification againts a trusted set of PCR values can be found in [`tpm-attest/`](tpm-attest/).
 
 
 ### GRUB2 Configuration in SPI Flash ###
@@ -49,6 +51,15 @@ An exemplary configuration file can be found in [`grub-cfg/bootdrive-grub.cfg`](
 To generate an initrd/initramfs/initcpio that initializes dm-verity and creates a `tmpfs` backed `overlayfs` around it, a hook for `mkinitcpio` is required. This hook is provided within [`etc-initcpio/`](etc-initcpio/), simply copy the directory contents to your `/etc/initcpio` directory and add the `overlay_verity` hook to your `/etc/mkinitcpio.conf` in the  `HOOKS` array after the `filesystems` hook. If you have a `fsck` hook, be sure to remove it as it will tamper with the root filesystem's on-disk header and cause verification failures.
 
 
+## TPM Remote Attestation ##
+
+When booting with a coreboot build in which measuring of platform components has been enabled, the different stages of the boot process up to and including the RSA key used for signing the GRUB2-loaded components (see above) are hashed. These hashes are then stored in a hash-chain in the TPM chip of the target device and cannot simply be tampered with after booting.
+
+You can then deploy the code from [`tpm-attest/`](tpm-attest/) to a trusted OpenSSH server to securely verify the platform state after booting. The server will issue a request including a random nonce (see for example [`tpm-attest/doc/examples/request.json`](tpm-attest/doc/examples/request.json)). The client will sign the nonce and it's current PCR state *on the TPM chip* and provide back an attestation blob for the server (see for example [`tpm-attest/doc/examples/quote.json`](tpm-attest/doc/examples/quote.json). Only if the PCR contents contain the expected values will the shell wrapper spawn a valid shell for the client.
+
+This way, you can travel with zero critical information and only a travel SSH authenticationon key on your travel laptop into your destination country. You can then download any additional information over an encrypted and authendicated connection, however the server will only let you access this data if the device you are connecting from can prove that it is in a known-good boot chain state.
+
+
 ## Step-by-step Setup ##
 
 1. First, install [ArchLinux](https://www.archlinux.org/) (or one of its derivatives, such as [BlackArch](http://blackarch.org/)) on your target devices internal drive, ensure to have a separate `/boot` partition. Make sure that you have all your tools and your root filesystem is *ready to be frozen*. At this point, you should also have set up any encrypted `/home` partitions and similar.
@@ -58,3 +69,4 @@ To generate an initrd/initramfs/initcpio that initializes dm-verity and creates 
 5. You can now [populate the dm-verity hash tree on the appropriate device using `veritysetup format`](https://gitlab.com/cryptsetup/cryptsetup/wikis/DMVerity). Be sure to copy the root hash!
 6. Update your [boot device `grub.cfg`](grub-cfg/bootdrive-grub.cfg) by providing the real `overlay_verity_dev` you just populated and setting the root hash with `overlay_verity_root`.
 7. Sign your boot device `grub.cfg`, the kernel and the initrd/initramfs/initcpio using `gpg --detach-sign` (optionally specify the right signing key with `--local-user`).
+8. Optionally deploy [`tpm-attest/`](tpm-attest/) to an trusted OpenSSH server.

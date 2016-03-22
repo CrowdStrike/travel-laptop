@@ -1,0 +1,6 @@
+aik_*
+*.json
+quote-make
+quote-verify
+*.o
+.*.swp
